@@ -1,0 +1,32 @@
+name: Build WaveScope
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -G Xcode
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package DMG
+        run: |
+          mkdir -p dist
+          cp -R build/WaveScope_artefacts/Release/AU/WaveScope.component dist/
+          cp -R build/WaveScope_artefacts/Release/VST3/WaveScope.vst3 dist/
+          cp -R build/WaveScope_artefacts/Release/Standalone/WaveScope.app dist/
+          for f in dist/*; do codesign --force --deep -s - "$f"; done
+          hdiutil create -volname WaveScope -srcfolder dist -ov -format UDZO WaveScope.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WaveScope-macOS
+          path: WaveScope.dmg
