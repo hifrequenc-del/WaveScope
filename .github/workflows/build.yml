@@ -1,4 +1,4 @@
-name: Build WaveScope
+name: Build Hexoscope
 
 on:
   workflow_dispatch:
@@ -20,13 +20,13 @@ jobs:
       - name: Package DMG
         run: |
           mkdir -p dist
-          cp -R build/WaveScope_artefacts/Release/AU/WaveScope.component dist/
-          cp -R build/WaveScope_artefacts/Release/VST3/WaveScope.vst3 dist/
-          cp -R build/WaveScope_artefacts/Release/Standalone/WaveScope.app dist/
+          cp -R build/Hexoscope_artefacts/Release/AU/HEXOSCOPE.component dist/
+          cp -R build/Hexoscope_artefacts/Release/VST3/HEXOSCOPE.vst3 dist/
+          cp -R build/Hexoscope_artefacts/Release/Standalone/HEXOSCOPE.app dist/
           for f in dist/*; do codesign --force --deep -s - "$f"; done
-          hdiutil create -volname WaveScope -srcfolder dist -ov -format UDZO WaveScope.dmg
+          hdiutil create -volname Hexoscope -srcfolder dist -ov -format UDZO Hexoscope.dmg
 
       - uses: actions/upload-artifact@v4
         with:
-          name: WaveScope-macOS
-          path: WaveScope.dmg
+          name: Hexoscope-macOS
+          path: Hexoscope.dmg
