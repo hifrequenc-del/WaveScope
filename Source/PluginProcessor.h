@@ -83,6 +83,20 @@ private:
 
     static constexpr int numBins = 750;      // -70 .. +5 LUFS in 0.1 LU steps
 
+    // peak meter that holds a new maximum for 3 s, then follows the signal down again
+    struct PeakHold
+    {
+        float value = 0.f;
+        int left = 0;
+        float update (float blockPeak, int numSamples, int holdLen) noexcept
+        {
+            left -= numSamples;
+            if (blockPeak >= value) { value = blockPeak; left = holdLen; }
+            else if (left <= 0)     { value = blockPeak; }
+            return value;
+        }
+    };
+
     void setupLoudness (double sr);
     void resetLoudness();
     void analyseLoudness (float l, float r, bool stereo);
@@ -98,6 +112,8 @@ private:
     float tpHist[2][12] {};
     float tpCoef[3][12] {};
     float truePeakLin = 0.f, samplePeakLin = 0.f;
+    PeakHold trueHold, sampleHold;
+    int peakHoldLen = 144000;
 
     std::atomic<bool> resetRequested { false };
     std::atomic<float> momentaryLufs { -100.f };

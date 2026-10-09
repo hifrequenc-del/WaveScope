@@ -198,12 +198,6 @@ void HexoscopeEditor::paint (juce::Graphics& g)
     const juce::int64 head = total / fpp;                     // number of completed pixel groups
     const int headSlot = (int) (head % slots);
 
-    // centre lines
-    g.setColour (juce::Colours::white.withAlpha (0.08f));
-    for (int k = 0; k < numLanes; ++k)
-        g.fillRect ((float) area.getX(), area.getY() + laneH * ((float) k + 0.5f) - 0.5f,
-                    (float) area.getWidth(), 1.0f);
-
     for (int x = 0; x < slots; ++x)
     {
         juce::int64 group;
@@ -227,6 +221,7 @@ void HexoscopeEditor::paint (juce::Graphics& g)
             const float hiV = juce::jlimit (-1.f, 1.f, a.mx[ch]);
             const float loV = juce::jlimit (-1.f, 1.f, a.mn[ch]);
             const float level = juce::jmax (std::abs (hiV), std::abs (loV));
+            if (level < 0.001f) continue;   // silence: draw nothing
 
             float top = centre - hiV * half;
             float bot = centre - loV * half;
@@ -237,12 +232,6 @@ void HexoscopeEditor::paint (juce::Graphics& g)
             g.setColour (colour);
             g.fillRect (px, top, 1.0f, bot - top);
         }
-    }
-
-    if (loop)   // playhead
-    {
-        g.setColour (juce::Colours::white.withAlpha (0.5f));
-        g.fillRect ((float) (area.getX() + headSlot * pxStep), (float) area.getY(), 1.0f, (float) area.getHeight());
     }
 
     if (showMeters)

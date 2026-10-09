@@ -110,8 +110,13 @@ void HexoscopeProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             flushColumn();
     }
 
-    truePeakDb   = juce::Decibels::gainToDecibels (truePeakLin);
-    samplePeakDb = juce::Decibels::gainToDecibels (samplePeakLin);
+    const float tp = trueHold.update (truePeakLin, n, peakHoldLen);
+    const float sp = sampleHold.update (samplePeakLin, n, peakHoldLen);
+    truePeakLin = 0.f;
+    samplePeakLin = 0.f;
+
+    truePeakDb   = juce::Decibels::gainToDecibels (tp);
+    samplePeakDb = juce::Decibels::gainToDecibels (sp);
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +163,7 @@ void HexoscopeProcessor::setupLoudness (double sr)
     }
 
     subBlockLen = juce::jmax (1, (int) std::round (sr * 0.1));   // 100 ms hop
+    peakHoldLen = juce::jmax (1, (int) std::round (sr * 3.0));    // peak hold time: 3 s
 
     // 4x oversampling interpolator for true-peak estimation (windowed sinc)
     for (int p = 0; p < 3; ++p)
@@ -185,6 +191,8 @@ void HexoscopeProcessor::resetLoudness()
     for (auto& h : tpHist) for (auto& v : h) v = 0.f;
     truePeakLin = 0.f;
     samplePeakLin = 0.f;
+    trueHold = PeakHold();
+    sampleHold = PeakHold();
 
     momentaryLufs  = -100.0f;
     shortLufs      = -100.0f;
