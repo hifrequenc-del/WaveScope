@@ -2,12 +2,12 @@
 
 namespace
 {
-    const juce::Colour bgColour     { 0xff090b10 };
-    const juce::Colour accentColour { 0xfff5a25d };
-    const juce::Colour panelColour  { 0xff0b1120 };
-    const juce::Colour panelEdge    { 0xff1a2744 };
-    const juce::Colour labelColour  { 0xff8aa0c4 };
-    const juce::Colour valueColour  { 0xffe6f1ff };
+    const juce::Colour bgColour     { 0xff0b0c10 };
+    const juce::Colour accentColour { 0xff4f8dff };
+    const juce::Colour panelColour  { 0xff13151b };
+    const juce::Colour panelEdge    { 0x12ffffff };
+    const juce::Colour labelColour  { 0xff8a93a6 };
+    const juce::Colour valueColour  { 0xffe9ecf3 };
 
     struct LaneMap { int a; int b; };           // channel index for lane 1 / lane 2 (-1 = none)
     constexpr LaneMap laneMaps[] = {
@@ -51,12 +51,14 @@ HexoscopeEditor::HexoscopeEditor (HexoscopeProcessor& p)
     addAndMakeVisible (windowSlider);
     windowAtt = std::make_unique<SA> (proc.apvts, "speed", windowSlider);
 
-    windowLabel.setColour (juce::Label::textColourId, juce::Colours::grey);
+    windowLabel.setColour (juce::Label::textColourId, labelColour);
     addAndMakeVisible (windowLabel);
 
+    setLookAndFeel (&lnf);
+
     setResizable (true, true);
-    setResizeLimits (560, 220, 3000, 1200);
-    setSize (900, 360);
+    setResizeLimits (640, 260, 3000, 1200);
+    setSize (960, 420);
 
     // Double-click the display to hide / show all controls (saved with the project)
     setControlsHidden ((bool) proc.apvts.state.getProperty ("controlsHidden", false));
@@ -87,12 +89,12 @@ void HexoscopeEditor::resized()
 {
     if (controlsHidden) return;
 
-    auto bar = getLocalBounds().removeFromBottom (barHeight).reduced (6, 5);
-    channelsBox.setBounds (bar.removeFromLeft (84));   bar.removeFromLeft (6);
-    colorBox.setBounds    (bar.removeFromLeft (104));  bar.removeFromLeft (6);
-    loopButton.setBounds  (bar.removeFromLeft (64));   bar.removeFromLeft (6);
-    metersButton.setBounds (bar.removeFromLeft (76));  bar.removeFromLeft (6);
-    resetButton.setBounds (bar.removeFromLeft (56));   bar.removeFromLeft (10);
+    auto bar = getLocalBounds().removeFromBottom (barHeight).reduced (12, 9);
+    channelsBox.setBounds (bar.removeFromLeft (92));   bar.removeFromLeft (8);
+    colorBox.setBounds    (bar.removeFromLeft (112));  bar.removeFromLeft (8);
+    loopButton.setBounds  (bar.removeFromLeft (60));   bar.removeFromLeft (8);
+    metersButton.setBounds (bar.removeFromLeft (76));  bar.removeFromLeft (8);
+    resetButton.setBounds (bar.removeFromLeft (60));   bar.removeFromLeft (14);
 
     windowLabel.setBounds (bar.removeFromLeft (56));
     windowSlider.setBounds (bar);
@@ -174,9 +176,21 @@ void HexoscopeEditor::paint (juce::Graphics& g)
     const bool showMeters = metersOn();
 
     auto full = getLocalBounds().withTrimmedBottom (controlsHidden ? 0 : barHeight);
-    auto meterPanel = full.removeFromBottom (showMeters ? meterPanelHeight : 0).reduced (8, 4);
-    auto area = full.reduced (8, 6);
+    auto meterPanel = full.removeFromBottom (showMeters ? meterPanelHeight : 0).reduced (12, 4);
+
+    // with controls and meters hidden the waveform fills the whole window (no card)
+    const bool bare = controlsHidden && ! showMeters;
+    auto cardArea = bare ? full : full.reduced (12, 8);
+    auto area = cardArea.reduced (bare ? 8 : 10, bare ? 6 : 10);
     if (area.isEmpty()) return;
+
+    if (! bare)
+    {
+        g.setColour (panelColour);
+        g.fillRoundedRectangle (cardArea.toFloat(), 16.0f);
+        g.setColour (panelEdge);
+        g.drawRoundedRectangle (cardArea.toFloat().reduced (0.5f), 16.0f, 1.0f);
+    }
 
     auto getInt   = [this] (const char* id) { return (int) proc.apvts.getRawParameterValue (id)->load(); };
     auto getFloat = [this] (const char* id) { return proc.apvts.getRawParameterValue (id)->load(); };
@@ -245,19 +259,19 @@ bool HexoscopeEditor::metersOn() const
 
 void HexoscopeEditor::drawMeters (juce::Graphics& g, juce::Rectangle<int> r)
 {
-    if (r.getWidth() < 240 || r.getHeight() < 60)
+    if (r.getWidth() < 240 || r.getHeight() < 70)
         return;
 
-    auto loudCard = r.removeFromLeft ((int) ((float) r.getWidth() * 0.58f));
-    r.removeFromLeft (8);
+    auto loudCard = r.removeFromLeft ((int) ((float) r.getWidth() * 0.55f));
+    r.removeFromLeft (12);
     auto headCard = r;
 
     for (auto b : { loudCard, headCard })
     {
         g.setColour (panelColour);
-        g.fillRoundedRectangle (b.toFloat(), 8.0f);
+        g.fillRoundedRectangle (b.toFloat(), 16.0f);
         g.setColour (panelEdge);
-        g.drawRoundedRectangle (b.toFloat().reduced (0.5f), 8.0f, 1.0f);
+        g.drawRoundedRectangle (b.toFloat().reduced (0.5f), 16.0f, 1.0f);
     }
 
     auto text = [&g] (const juce::String& s, juce::Rectangle<int> b, float size,
@@ -270,47 +284,67 @@ void HexoscopeEditor::drawMeters (juce::Graphics& g, juce::Rectangle<int> r)
 
     auto fmt = [] (float v) { return v <= -99.0f ? juce::String ("--") : juce::String (v, 1); };
 
-    auto readout = [&] (juce::Rectangle<int> b, float v, const juce::String& caption, float size)
+    // One card: title (+ optional status), a big value, two small values and a thin level bar
+    auto drawCard = [&] (juce::Rectangle<int> card, const juce::String& title,
+                         const juce::String& status, juce::Colour statusColour,
+                         float bigValue, const juce::String& bigCaption,
+                         float v1, const juce::String& cap1,
+                         float v2, const juce::String& cap2,
+                         float fraction, juce::Colour barEnd)
     {
-        text (fmt (v), b.removeFromTop ((int) size + 8), size, valueColour, juce::Justification::centredLeft);
-        text (caption, b.removeFromTop (14), 11.0f, labelColour, juce::Justification::centredLeft);
-    };
+        auto inner = card.reduced (16, 12);
 
-    // ---- loudness ----
-    {
-        auto inner = loudCard.reduced (12, 8);
-        text ("LOUDNESS (LUFS)", inner.removeFromTop (16), 11.0f, labelColour, juce::Justification::centredLeft);
+        auto head = inner.removeFromTop (16);
+        text (title, head, 12.0f, labelColour, juce::Justification::centredLeft);
+        if (status.isNotEmpty())
+            text (status, head, 12.0f, statusColour, juce::Justification::centredRight);
 
-        auto c1 = inner.removeFromLeft (inner.getWidth() * 2 / 5);
-        auto c2 = inner.removeFromLeft (inner.getWidth() / 2);
-        readout (c1,    proc.getIntegratedLufs(), "Integrated", 28.0f);
-        readout (c2,    proc.getShortLufs(),      "Short-term", 20.0f);
-        readout (inner, proc.getMomentaryLufs(),  "Momentary",  20.0f);
-    }
+        auto bar = inner.removeFromBottom (4);
+        inner.removeFromBottom (10);
 
-    // ---- headroom ----
-    {
-        const float tp = proc.getTruePeakDb();
-        const float sp = proc.getSamplePeakDb();
-
-        auto inner = headCard.reduced (12, 8);
-        auto top = inner.removeFromTop (16);
-        text ("HEADROOM (dB)", top, 11.0f, labelColour, juce::Justification::centredLeft);
-
-        if (tp > -1.0f)
+        const auto barF = bar.toFloat();
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.fillRoundedRectangle (barF, 2.0f);
+        if (fraction > 0.0f)
         {
-            const bool over = tp > 0.0f;
-            const auto col = over ? juce::Colour (0xffef4444) : juce::Colour (0xfff59e0b);
-            auto badge = top.removeFromRight (juce::jmin (112, top.getWidth()));
-            g.setColour (col.withAlpha (0.2f));
-            g.fillRoundedRectangle (badge.toFloat(), 5.0f);
-            text (over ? "Over 0 dBTP" : "Close to 0", badge, 11.0f, col, juce::Justification::centred);
+            g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3b6ef0), barF.getX(), 0.0f,
+                                                      barEnd, barF.getRight(), 0.0f, false));
+            g.fillRoundedRectangle (barF.withWidth (barF.getWidth() * juce::jlimit (0.0f, 1.0f, fraction)), 2.0f);
         }
 
-        auto d1 = inner.removeFromLeft (inner.getWidth() * 2 / 5);
-        auto d2 = inner.removeFromLeft (inner.getWidth() / 2);
-        readout (d1,    tp > -99.0f ? -tp : -100.0f, "Headroom",    28.0f);
-        readout (d2,    tp,                          "True peak",   20.0f);
-        readout (inner, sp,                          "Sample peak", 20.0f);
-    }
+        auto bigArea = inner.removeFromLeft (inner.getWidth() * 45 / 100);
+        text (fmt (bigValue), bigArea.removeFromTop (34), 32.0f, juce::Colour (0xfff4f6fb), juce::Justification::centredLeft);
+        text (bigCaption, bigArea.removeFromTop (14), 12.0f, labelColour, juce::Justification::centredLeft);
+
+        auto colA = inner.removeFromLeft (inner.getWidth() / 2);
+        text (fmt (v1), colA.removeFromTop (34), 17.0f, valueColour, juce::Justification::centredLeft);
+        text (cap1, colA.removeFromTop (14), 12.0f, labelColour, juce::Justification::centredLeft);
+        text (fmt (v2), inner.removeFromTop (34), 17.0f, valueColour, juce::Justification::centredLeft);
+        text (cap2, inner.removeFromTop (14), 12.0f, labelColour, juce::Justification::centredLeft);
+    };
+
+    const juce::Colour cyan (0xff7ee0ff), amber (0xfff5b84a), red (0xfff06565);
+
+    // ---- loudness ----
+    const float integrated = proc.getIntegratedLufs();
+    drawCard (loudCard, "Loudness (LUFS)", {}, valueColour,
+              integrated, "Integrated",
+              proc.getShortLufs(), "Short-term",
+              proc.getMomentaryLufs(), "Momentary",
+              integrated > -99.0f ? (integrated + 40.0f) / 40.0f : 0.0f, cyan);
+
+    // ---- headroom ----
+    const float tp = proc.getTruePeakDb();
+    const float sp = proc.getSamplePeakDb();
+
+    juce::String status;
+    juce::Colour statusColour = cyan;
+    if (tp > 0.0f)       { status = "Over 0 dBTP"; statusColour = red; }
+    else if (tp > -1.0f) { status = "Close to 0";  statusColour = amber; }
+
+    drawCard (headCard, "Headroom (dB)", status, statusColour,
+              tp > -99.0f ? -tp : -100.0f, "Below 0 dBFS",
+              tp, "True peak",
+              sp, "Sample peak",
+              tp > -99.0f ? (tp + 24.0f) / 24.0f : 0.0f, statusColour);
 }
