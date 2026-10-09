@@ -7,6 +7,9 @@ By Hamed Ghafari. A scrolling waveform meter. Audio passes through untouched.
 - Color modes: Static, Multi-Band (low = red, mid = green, high = blue), Color Map (spectral centroid), HEX (modern blues)
 - Scroll or Loop (playhead) display
 - Window: 1–30 s across the display
+- Loudness meter: integrated, short-term and momentary LUFS (EBU R128 / ITU-R BS.1770 gating), with Reset
+- Headroom meter: true peak (4x oversampled), sample peak and headroom to 0 dBFS, with a warning badge
+- Meters toggle in the bottom bar
 - Resizable UI, settings saved with your DAW project
 - Double-click the display to hide or show all controls
 
