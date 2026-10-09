@@ -28,8 +28,8 @@ juce_add_plugin(Hexoscope
     COPY_PLUGIN_AFTER_BUILD     TRUE)
 
 target_sources(Hexoscope PRIVATE
-    PluginProcessor.cpp
-    PluginEditor.cpp)
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp)
 
 target_compile_definitions(Hexoscope PUBLIC
     JUCE_WEB_BROWSER=0
@@ -39,7 +39,6 @@ target_compile_definitions(Hexoscope PUBLIC
 target_link_libraries(Hexoscope
     PRIVATE
         juce::juce_audio_utils
-        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
