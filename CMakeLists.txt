@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(JUCE)
 
 juce_add_plugin(Hexoscope
     COMPANY_NAME                "Hamed Ghafari"
+    BUNDLE_ID                   "com.hamedghafari.hexoscope"
     PLUGIN_MANUFACTURER_CODE    Hgha
     PLUGIN_CODE                 Hexo
     FORMATS                     AU VST3 Standalone
